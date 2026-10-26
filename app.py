@@ -223,10 +223,11 @@ def get_articles(
     category: Optional[str] = None,
     filter: Optional[str] = "all",  # 'all', 'unread', 'starred', 'alert_only'
     search: Optional[str] = None,
+    sort: Optional[str] = "latest",  # 'latest', 'alerts_first', 'published'
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0)
 ):
-    """Retrieves paginated articles with optional category, search, and status filters."""
+    """Retrieves paginated articles with optional category, search, sort, and status filters."""
     conn = get_db()
     cursor = conn.cursor()
 
@@ -258,6 +259,14 @@ def get_articles(
     cursor.execute(count_query, params)
     total_matching = cursor.fetchone()[0]
 
+    # Determine sort order
+    if sort == "published":
+        order_clause = "ORDER BY a.published_at DESC, a.id DESC"
+    elif sort == "alerts_first":
+        order_clause = "ORDER BY a.has_alert DESC, a.fetched_at DESC, a.published_at DESC, a.id DESC"
+    else:  # default: 'latest' - new incoming news and alerts appear immediately at top
+        order_clause = "ORDER BY a.fetched_at DESC, a.published_at DESC, a.id DESC"
+
     # Fetch articles
     query = f"""
         SELECT 
@@ -268,7 +277,7 @@ def get_articles(
         FROM articles a
         LEFT JOIN feeds f ON a.feed_id = f.id
         {where_clause}
-        ORDER BY a.published_at DESC, a.id DESC
+        {order_clause}
         LIMIT ? OFFSET ?
     """
     params.extend([limit, offset])
