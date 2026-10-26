@@ -188,8 +188,11 @@ DEFAULT_SETTINGS = {
 
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=45.0)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout = 45000")
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA synchronous = NORMAL")
     return conn
 
 
