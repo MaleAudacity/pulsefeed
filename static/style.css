@@ -933,6 +933,44 @@ body {
   letter-spacing: 0.5px;
 }
 
+/* Real-Time Highlight Glow for Incoming Alerts */
+@keyframes alertGlow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 90, 31, 0.8);
+    border-color: var(--accent-tangerine) !important;
+    transform: translateY(-4px) scale(1.02);
+  }
+  40% {
+    box-shadow: 0 0 25px 8px rgba(255, 90, 31, 0.45);
+    border-color: var(--accent-tangerine) !important;
+    transform: translateY(-4px) scale(1.02);
+  }
+  100% {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+    border-color: var(--border-ink) !important;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.article-glow-highlight {
+  animation: alertGlow 3.5s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  border-color: var(--accent-tangerine) !important;
+}
+
+/* Pulsing Badge on Category Tabs when new alert arrives */
+@keyframes tabPulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 90, 31, 0.8); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 90, 31, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 90, 31, 0); }
+}
+
+.tab-pulse-badge {
+  animation: tabPulse 1.8s infinite !important;
+  border-color: var(--accent-tangerine) !important;
+}
+  letter-spacing: 0.5px;
+}
+
 .article-card-top {
   display: flex;
   align-items: center;
