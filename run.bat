@@ -51,8 +51,8 @@ echo.
 echo [*] Launching PulseFeed engine and dashboard...
 %PY_CMD% main.py %*
 
-if errorlevel 1 (
-    echo.
-    echo [!] Server process stopped.
-    pause
-)
+echo.
+echo ==============================================================
+echo [*] PulseFeed engine has stopped.
+echo ==============================================================
+pause
