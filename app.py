@@ -263,9 +263,9 @@ def get_articles(
     if sort == "published":
         order_clause = "ORDER BY a.published_at DESC, a.id DESC"
     elif sort == "alerts_first":
-        order_clause = "ORDER BY a.has_alert DESC, a.fetched_at DESC, a.published_at DESC, a.id DESC"
-    else:  # default: 'latest' - new incoming news and alerts appear immediately at top
-        order_clause = "ORDER BY a.fetched_at DESC, a.published_at DESC, a.id DESC"
+        order_clause = "ORDER BY a.has_alert DESC, a.id DESC"
+    else:  # default: 'latest' - strictly guarantees that newly arrived news and alerts appear at top of feed
+        order_clause = "ORDER BY a.id DESC"
 
     # Fetch articles
     query = f"""
