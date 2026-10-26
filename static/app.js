@@ -8,6 +8,7 @@
 const state = {
   category: 'all',
   filter: 'all', // 'all', 'unread', 'starred', 'alert_only'
+  sort: 'latest', // 'latest', 'alerts_first', 'published'
   search: '',
   articles: [],
   triggers: [],
@@ -17,6 +18,8 @@ const state = {
   stats: {},
   isSyncing: false
 };
+
+let currentAlertData = null;
 
 // --- Web Audio API Chime Synthesizer ---
 let audioCtx = null;
@@ -72,15 +75,24 @@ function playAlertChime() {
 }
 
 // --- In-App Toast Notification ---
-function showInAppToast(title, desc, icon = '🔔', duration = 4000) {
+function showInAppToast(title, desc, icon = '🔔', duration = 4000, onClick = null) {
   const container = document.getElementById('toastContainer');
   const toast = document.createElement('div');
   toast.className = 'toast';
+  if (onClick) {
+    toast.style.cursor = 'pointer';
+    toast.title = 'Click to view in feed';
+    toast.onclick = () => {
+      onClick();
+      toast.remove();
+    };
+  }
   toast.innerHTML = `
     <div class="toast-icon">${icon}</div>
     <div class="toast-content">
       <div class="toast-title">${title}</div>
       <div class="toast-desc">${desc}</div>
+      ${onClick ? '<div style="font-size: 0.72rem; color: var(--accent-orange); font-weight: 700; margin-top: 0.25rem;">⚡ Click to show in feed</div>' : ''}
     </div>
   `;
   container.appendChild(toast);
@@ -92,6 +104,65 @@ function showInAppToast(title, desc, icon = '🔔', duration = 4000) {
   }, duration);
 }
 
+// --- Jump & Highlight Alerted Article in Feed ---
+function jumpToAlertArticle(alertData) {
+  if (!alertData) return;
+
+  const targetCategory = alertData.category || 'all';
+  state.category = targetCategory;
+
+  const topicTabs = document.getElementById('topicTabs');
+  if (topicTabs) {
+    topicTabs.querySelectorAll('.nav-pill-link, .topic-tab').forEach(b => {
+      const cat = b.getAttribute('data-category');
+      b.classList.toggle('active', cat === targetCategory);
+      b.classList.remove('tab-pulse-badge');
+    });
+  }
+
+  // Reset filter to 'all' so article is not hidden
+  state.filter = 'all';
+  const filterPills = document.getElementById('filterPills');
+  if (filterPills) {
+    filterPills.querySelectorAll('.pill-filter-btn').forEach(p => {
+      p.classList.toggle('active', p.getAttribute('data-filter') === 'all');
+    });
+  }
+
+  // Clear search if present
+  if (state.search) {
+    state.search = '';
+    const sInput = document.getElementById('searchInput');
+    if (sInput) sInput.value = '';
+    const btnClr = document.getElementById('btnClearSearch');
+    if (btnClr) btnClr.style.display = 'none';
+  }
+
+  const articlesContainer = document.getElementById('articlesContainer');
+  const alertsLogContainer = document.getElementById('alertsLogContainer');
+  const toolbar = document.querySelector('.bento-toolbar, .toolbar');
+  if (articlesContainer) articlesContainer.style.display = 'grid';
+  if (alertsLogContainer) alertsLogContainer.style.display = 'none';
+  if (toolbar) toolbar.style.display = 'flex';
+
+  fetchArticles().then(() => {
+    setTimeout(() => {
+      let targetEl = null;
+      if (alertData.article_id) {
+        targetEl = document.querySelector(`article[data-id="${alertData.article_id}"]`);
+      }
+      if (!targetEl) {
+        targetEl = document.querySelector('#articlesContainer article');
+      }
+      if (targetEl) {
+        targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        targetEl.classList.add('article-glow-highlight');
+        setTimeout(() => targetEl.classList.remove('article-glow-highlight'), 3500);
+      }
+    }, 150);
+  });
+}
+
 // --- Date Formatter ---
 function formatTimeAgo(isoString) {
   if (!isoString) return '';
@@ -99,7 +170,7 @@ function formatTimeAgo(isoString) {
   const now = new Date();
   const diffSec = Math.floor((now - date) / 1000);
 
-  if (diffSec < 60) return 'Just now';
+  if (diffSec < 0 || diffSec < 60) return 'Just now';
   const diffMin = Math.floor(diffSec / 60);
   if (diffMin < 60) return `${diffMin}m ago`;
   const diffHours = Math.floor(diffMin / 60);
@@ -126,7 +197,7 @@ async function fetchStats() {
 async function fetchArticles() {
   const container = document.getElementById('articlesContainer');
   try {
-    let url = `/api/articles?category=${encodeURIComponent(state.category)}&filter=${encodeURIComponent(state.filter)}&limit=100`;
+    let url = `/api/articles?category=${encodeURIComponent(state.category)}&filter=${encodeURIComponent(state.filter)}&sort=${encodeURIComponent(state.sort)}&limit=100`;
     if (state.search.trim()) {
       url += `&search=${encodeURIComponent(state.search.trim())}`;
     }
@@ -643,6 +714,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Jump to Alert Article Button in Flash Banner
+  const alertBannerJumpBtn = document.getElementById('alertBannerJumpBtn');
+  if (alertBannerJumpBtn) {
+    alertBannerJumpBtn.addEventListener('click', () => {
+      if (currentAlertData) {
+        jumpToAlertArticle(currentAlertData);
+      }
+    });
+  }
+
+  // Sort Selection Listener
+  const sortSelect = document.getElementById('sortSelect');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', (e) => {
+      state.sort = e.target.value;
+      fetchArticles();
+    });
+  }
+
   // Connect to Real-Time Server-Sent Events (SSE) Push Stream
   function setupRealtimeStream() {
     const statusText = document.getElementById('engineStatusText');
@@ -655,15 +745,28 @@ document.addEventListener('DOMContentLoaded', () => {
     sse.addEventListener('alert', (e) => {
       try {
         const alert = JSON.parse(e.data);
+        currentAlertData = alert;
         
-        // Update top alert banner with headline
+        // Update top alert banner with headline and category capsule
         const banner = document.getElementById('liveAlertBanner');
         const bannerRule = document.getElementById('alertBannerRule');
+        const bannerCat = document.getElementById('alertBannerCat');
         const bannerTitle = document.getElementById('alertBannerTitle');
         const bannerLink = document.getElementById('alertBannerLink');
 
         if (banner && bannerRule && bannerTitle && bannerLink) {
-          bannerRule.textContent = alert.trigger_name || 'BREAKING';
+          bannerRule.textContent = alert.trigger_name || 'BREAKING ALERT';
+          if (bannerCat) {
+            const catMap = {
+              daily_news_us: 'US News',
+              daily_news_ind: 'India News',
+              singers_usa: 'Singers USA',
+              hollywood_stars: 'Hollywood',
+              mix_sports: 'MLB / NFL'
+            };
+            bannerCat.textContent = catMap[alert.category] || alert.category;
+            bannerCat.className = `category-capsule cat-${alert.category}`;
+          }
           bannerTitle.textContent = alert.title || '';
           bannerLink.href = alert.link || '#';
           banner.style.display = 'flex';
@@ -678,11 +781,27 @@ document.addEventListener('DOMContentLoaded', () => {
           `🚨 ${alert.trigger_name || 'Alert Triggered'}`,
           alert.title,
           '⚡',
-          7000
+          8000,
+          () => jumpToAlertArticle(alert)
         );
 
         fetchStats();
-        fetchArticles();
+        // If current tab is 'all' or matches the alerted article category, refresh immediately & glow top item
+        if (state.category === 'all' || state.category === alert.category) {
+          fetchArticles().then(() => {
+            const topCard = document.querySelector('#articlesContainer article');
+            if (topCard) {
+              topCard.classList.add('article-glow-highlight');
+              setTimeout(() => topCard.classList.remove('article-glow-highlight'), 3500);
+            }
+          });
+        } else {
+          // Add pulsating badge to the category tab where the alert belongs
+          const targetTab = document.querySelector(`#topicTabs button[data-category="${alert.category}"]`);
+          if (targetTab) {
+            targetTab.classList.add('tab-pulse-badge');
+          }
+        }
         fetchAlertLogs();
       } catch (err) {
         console.error("SSE alert parse err:", err);
@@ -693,7 +812,9 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const info = JSON.parse(e.data);
         fetchStats();
-        fetchArticles();
+        if (state.category === 'all' || state.category === info.category) {
+          fetchArticles();
+        }
       } catch (err) {
         console.error("SSE new_articles parse err:", err);
       }
@@ -783,6 +904,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     topicTabs.querySelectorAll('.nav-pill-link, .topic-tab').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    btn.classList.remove('tab-pulse-badge');
 
     state.category = btn.getAttribute('data-category');
 
