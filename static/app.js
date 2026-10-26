@@ -395,7 +395,7 @@ function renderArticles() {
             <button class="tactile-btn ${isRead ? 'active-read' : ''}" onclick="toggleRead(${art.id})" title="${isRead ? 'Mark Unread' : 'Mark as Read'}">
               ${isRead ? '✓' : '📖'}
             </button>
-            <button class="tactile-btn" onclick="quickCreateRule('${escapeHtml(art.title.replace(/'/g, "\\'"))}', '${art.category}')" title="Create Alert Rule from Headline">
+            <button class="tactile-btn" onclick="quickCreateRule(${art.id})" title="Create Alert Rule from Headline">
               ⚡
             </button>
           </div>
@@ -549,7 +549,19 @@ window.toggleRead = async function(id) {
   }
 };
 
-window.quickCreateRule = function(title, category) {
+window.quickCreateRule = function(artIdOrTitle, category) {
+  let title = '';
+  let cat = category || 'all';
+  if (typeof artIdOrTitle === 'number') {
+    const art = state.articles.find(a => a.id === artIdOrTitle);
+    if (art) {
+      title = art.title || '';
+      cat = art.category || 'all';
+    }
+  } else {
+    title = String(artIdOrTitle || '');
+  }
+
   // Extract key words from title (skip trivial stopwords)
   const stopwords = new Set(['the','a','an','and','or','in','on','at','to','for','of','with','is','are','was','were','as','by','its','from','that','this','who','what','how','why']);
   const words = title.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).filter(w => w.length > 3 && !stopwords.has(w.toLowerCase()));
@@ -559,7 +571,7 @@ window.quickCreateRule = function(title, category) {
   document.getElementById('triggerEditId').value = '';
   document.getElementById('triggerFormHeading').textContent = 'Create New Alert Trigger';
   document.getElementById('triggerName').value = `Alert: ${words[0] || 'Custom'}`;
-  document.getElementById('triggerCategory').value = category || 'all';
+  document.getElementById('triggerCategory').value = cat || 'all';
   document.getElementById('triggerKeywords').value = sampleKws || title.slice(0, 30);
   document.getElementById('triggerPriority').value = 'high';
   document.getElementById('btnCancelTriggerEdit').style.display = 'none';
