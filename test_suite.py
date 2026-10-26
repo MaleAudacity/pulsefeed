@@ -98,12 +98,21 @@ class TestPulseFeed(unittest.TestCase):
         self.assertIsNone(res_none)
 
     def test_05_article_filtering_and_pagination(self):
-        response = client.get("/api/articles?limit=10&offset=0")
+        # Default latest arrival
+        response = client.get("/api/articles?sort=latest&limit=10&offset=0")
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("articles", data)
         self.assertIn("total", data)
-        print(f"Retrieved {len(data['articles'])} articles via API.")
+        print(f"Retrieved {len(data['articles'])} articles via API (sort=latest).")
+
+        # Alerts first
+        response_alerts = client.get("/api/articles?sort=alerts_first&limit=5")
+        self.assertEqual(response_alerts.status_code, 200)
+        alerts_arts = response_alerts.json()["articles"]
+        if alerts_arts:
+            self.assertEqual(alerts_arts[0]["has_alert"], 1)
+        print("Verified sort=alerts_first puts alert articles at top.")
 
     def test_06_add_and_delete_trigger(self):
         new_trig = {
