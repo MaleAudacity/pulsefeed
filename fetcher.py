@@ -7,9 +7,10 @@ and dispatches them to the Trigger Engine.
 import time
 import re
 import html
+import calendar
 import urllib.request
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 import feedparser
 
@@ -35,15 +36,16 @@ def clean_html(raw_html: Optional[str]) -> str:
 
 
 def parse_date_to_iso(entry: Any) -> str:
-    """Extracts published or updated date as ISO string."""
+    """Extracts published or updated date as ISO string in UTC."""
     parsed_time = getattr(entry, "published_parsed", None) or getattr(entry, "updated_parsed", None)
     if parsed_time:
         try:
-            dt = datetime(*parsed_time[:6])
+            epoch = calendar.timegm(parsed_time)
+            dt = datetime.fromtimestamp(epoch, timezone.utc)
             return dt.isoformat()
         except Exception:
             pass
-    return datetime.now().isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 def fetch_single_feed(feed_record: Dict[str, Any]) -> Dict[str, Any]:
@@ -56,7 +58,7 @@ def fetch_single_feed(feed_record: Dict[str, Any]) -> Dict[str, Any]:
     category = feed_record["category"]
     feed_name = feed_record["name"]
 
-    now_iso = datetime.now().isoformat()
+    now_iso = datetime.now(timezone.utc).isoformat()
     new_articles = []
 
     try:
