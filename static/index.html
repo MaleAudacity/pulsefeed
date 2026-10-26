@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PulseFeed - Real-Time RSS & Alert Engine</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Outer Editorial Board Canvas -->
+  <div class="app-board">
+
+    <!-- Row 1: Top Navigation Header Bar -->
+    <header class="nav-header-capsule">
+      <a href="#" class="nav-brand">
+        <div class="brand-glyph">✦</div>
+        <div class="brand-text-block">
+          <span class="brand-title">PulseFeed</span>
+          <div class="brand-divider"></div>
+        </div>
+      </a>
+
+      <!-- Header Search Capsule -->
+      <div class="header-search-capsule">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="searchInput" placeholder="Search news headlines, summaries, sources..." />
+        <button class="clear-search-btn" id="btnClearSearch" style="display: none; background: none; border: none; cursor: pointer;">✕</button>
+      </div>
+
+      <!-- Header Actions (Live Status, Sound Mute, Sync, Alerts) -->
+      <div class="nav-actions">
+        <div class="live-stream-badge" title="Live Server-Sent Events (SSE) Stream Active">
+          <span class="live-dot"></span>
+          <span id="engineStatusText">Live SSE</span>
+        </div>
+
+        <!-- 1-Click Audio Mute/Unmute Toggle -->
+        <button class="nav-pill-btn" id="btnSoundToggle" title="Toggle notification sound chime ON/OFF">
+          <span id="soundIcon">🔊</span>
+          <span id="soundText">Sound ON</span>
+        </button>
+
+        <!-- Connected Tandem Action Pill -->
+        <div class="tandem-capsule">
+          <button class="tandem-btn tandem-btn-dark" id="btnSyncNow" title="Sync live feeds immediately">
+            <span>⚡ Sync</span>
+          </button>
+          <button class="tandem-btn tandem-btn-lime" id="btnTestNotify" title="Test Windows desktop toast & chime">
+            <span>🔔 Alert ▶</span>
+          </button>
+        </div>
+
+        <!-- Modals & Theme Toggle Buttons -->
+        <button class="nav-icon-btn" id="btnOpenTriggers" title="Configure Alert Rules & Triggers">⚡</button>
+        <button class="nav-icon-btn" id="btnOpenFeeds" title="Manage Feeds & Engine Settings">⚙️</button>
+        <button class="nav-icon-btn" id="btnThemeToggle" title="Toggle Light Cream / Dark Obsidian Glass">🌓</button>
+      </div>
+    </header>
+
+    <!-- Row 2: Dedicated Full-Width Topic Capsule Bar (Never Cut Off!) -->
+    <nav class="topic-capsule-bar" id="topicTabs">
+      <button class="nav-pill-link active" data-category="all">
+        <span>All Stories</span>
+        <span class="nav-count-badge" id="countAll">0</span>
+      </button>
+      <button class="nav-pill-link" data-category="daily_news_us">
+        <span>Daily News US</span>
+        <span class="nav-count-badge" id="countDailyNewsUS">0</span>
+      </button>
+      <button class="nav-pill-link" data-category="daily_news_ind">
+        <span>Daily News IND</span>
+        <span class="nav-count-badge" id="countDailyNewsIND">0</span>
+      </button>
+      <button class="nav-pill-link" data-category="singers_usa">
+        <span>Singers USA</span>
+        <span class="nav-count-badge" id="countSingersUSA">0</span>
+      </button>
+      <button class="nav-pill-link" data-category="hollywood_stars">
+        <span>Hollywood Stars</span>
+        <span class="nav-count-badge" id="countHollywoodStars">0</span>
+      </button>
+      <button class="nav-pill-link" data-category="mix_sports">
+        <span>Mix Sports (MLB & NFL)</span>
+        <span class="nav-count-badge" id="countMixSports">0</span>
+      </button>
+      <button class="nav-pill-link tab-alert-link" data-category="alerts_log">
+        <span>🚨 Alerts Log</span>
+        <span class="nav-count-badge alert-badge" id="countAlertsLog">0</span>
+      </button>
+    </nav>
+
+    <!-- Breaking Alert Flash Notification Banner (Shows exactly what caused the chime) -->
+    <div class="alert-flash-banner" id="liveAlertBanner" style="display: none;">
+      <div class="alert-flash-left">
+        <span class="alert-flash-icon">🚨</span>
+        <div>
+          <span class="alert-flash-tag" id="alertBannerRule">BREAKING ALERT</span>
+          <span class="alert-flash-title" id="alertBannerTitle">Headline text goes here</span>
+        </div>
+      </div>
+      <div class="alert-flash-right">
+        <a href="#" target="_blank" rel="noopener noreferrer" class="read-story-pill" id="alertBannerLink">Read Story ↗</a>
+        <button class="alert-dismiss-btn" id="btnDismissAlertBanner">✕</button>
+      </div>
+    </div>
+
+    <!-- Bento Box Hero Section (Directly inspired by Image 1) -->
+    <section class="hero-bento-grid">
+
+      <!-- Bento Card 1: Metric 500+ with Lime Arrow Circle & 3D Glass Stack -->
+      <div class="bento-card bento-card-glass">
+        <div class="metric-header">
+          <div>
+            <div class="metric-big-num" id="statTotalArticles">0</div>
+            <div class="metric-sub-label">Ingested Articles</div>
+          </div>
+          <a href="#feedStreamAnchor" class="arrow-circle-btn" title="Jump to Articles Stream">↗</a>
+        </div>
+        <div class="glass-tile-stack">
+          <div class="stacked-tile tile-1"></div>
+          <div class="stacked-tile tile-2"></div>
+          <div class="stacked-tile tile-3"></div>
+        </div>
+      </div>
+
+      <!-- Bento Card 2: Ticket / Barcode Module (Image 1 Style) -->
+      <div class="bento-card bento-card-cream">
+        <div class="ticket-header">
+          <span class="ticket-tag">Live Engine</span>
+          <span class="ticket-discount-pill">Real-Time</span>
+        </div>
+        <div class="ticket-title">Alert Scanner</div>
+        <div class="ticket-desc">Background monitoring across 15 active US, IND, Hollywood, Singer & Sports feeds.</div>
+        <div class="ticket-pricing-row">
+          <span class="ticket-date">STATUS: ACTIVE</span>
+          <span style="font-weight: 800; font-size: 0.85rem;" id="statUnreadCountBadge">0 Unread</span>
+        </div>
+        <div class="ticket-time-barcode">
+          <div class="ticket-big-time" id="ticketClock">12:00</div>
+          <!-- Real Scalable Barcode SVG Graphic -->
+          <svg class="barcode-svg" viewBox="0 0 100 30" fill="currentColor">
+            <rect x="0" y="0" width="3" height="30"></rect>
+            <rect x="5" y="0" width="2" height="30"></rect>
+            <rect x="9" y="0" width="4" height="30"></rect>
+            <rect x="15" y="0" width="2" height="30"></rect>
+            <rect x="19" y="0" width="5" height="30"></rect>
+            <rect x="26" y="0" width="2" height="30"></rect>
+            <rect x="30" y="0" width="4" height="30"></rect>
+            <rect x="36" y="0" width="2" height="30"></rect>
+            <rect x="40" y="0" width="6" height="30"></rect>
+            <rect x="48" y="0" width="2" height="30"></rect>
+            <rect x="52" y="0" width="3" height="30"></rect>
+            <rect x="57" y="0" width="5" height="30"></rect>
+            <rect x="64" y="0" width="2" height="30"></rect>
+            <rect x="68" y="0" width="4" height="30"></rect>
+            <rect x="74" y="0" width="3" height="30"></rect>
+            <rect x="79" y="0" width="5" height="30"></rect>
+            <rect x="86" y="0" width="2" height="30"></rect>
+            <rect x="90" y="0" width="4" height="30"></rect>
+            <rect x="96" y="0" width="3" height="30"></rect>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Bento Card 3: Editorial Headline & Mascot Accent -->
+      <div class="bento-card editorial-hero-card">
+        <div>
+          <div class="diamond-rating-strip">
+            <span class="diamond-glyph">◆ ◆ ◆ ◆ ◆</span>
+            <span style="color: var(--ink-primary); margin-left: 0.35rem;" id="statActiveTriggersCount">6 Active Alert Rules</span>
+          </div>
+          <h1 class="hero-main-headline">
+            Real-time news & trigger intelligence that inspire
+            <span class="hero-headline-accent">
+              <span class="accent-circle-pair">
+                <span class="circle-orange"></span>
+                <span class="circle-lime"></span>
+              </span>
+            </span>
+          </h1>
+          <p class="hero-sub-para">
+            Curated live intelligence covering Daily US & India Top Stories, American Pop Stars, Hollywood Blockbusters, and NFL & MLB Baseball Postseason action.
+          </p>
+        </div>
+
+        <div class="mini-stats-row">
+          <div class="mini-stat-card">
+            <div class="mini-stat-header">
+              <span>◆ ALERT MATCHES</span>
+              <span class="nav-count-badge alert-badge" id="heroAlertsBadge">0</span>
+            </div>
+            <div class="mini-stat-val" id="statAlertsFired">0</div>
+            <div class="mini-stat-label">Notifications & Toasts Dispatched</div>
+          </div>
+
+          <div class="mini-stat-card">
+            <div class="mini-stat-header">
+              <span>◆ ACTIVE FEEDS</span>
+              <span>15 Sources</span>
+            </div>
+            <div class="mini-stat-val" id="statActiveFeeds">15</div>
+            <div class="mini-stat-label">Google News, ESPN, Billboard, Variety, NDTV</div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <div id="feedStreamAnchor"></div>
+
+    <!-- Filter Status Toolbar (Pill Capsule Style) -->
+    <section class="bento-toolbar">
+      <div class="filter-tandem-group" id="filterPills">
+        <button class="pill-filter-btn active" data-filter="all">All Stories</button>
+        <button class="pill-filter-btn" data-filter="unread">Unread Only</button>
+        <button class="pill-filter-btn" data-filter="starred">⭐ Starred</button>
+        <button class="pill-filter-btn pill-filter-alert" data-filter="alert_only">⚡ Trigger Matches</button>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 0.85rem;">
+        <button class="pill-filter-btn" id="btnMarkAllRead" title="Mark currently visible category as read">
+          ✓ Mark Read
+        </button>
+        <span style="font-size: 0.82rem; font-weight: 700; color: var(--ink-secondary);" id="resultsCount">Loading...</span>
+      </div>
+    </section>
+
+    <!-- Articles Stream Grid -->
+    <main>
+      <div class="articles-bento-grid" id="articlesContainer">
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>Loading real-time news stream & evaluating triggers...</p>
+        </div>
+      </div>
+
+      <!-- Alert Logs Table View (Shown when Alerts Log tab is clicked) -->
+      <div class="alerts-log-wrapper" id="alertsLogContainer" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+          <div>
+            <h2 style="font-size: 1.35rem; font-weight: 800;">🚨 Triggered Alerts History</h2>
+            <p style="font-size: 0.82rem; color: var(--ink-secondary); margin-top: 0.2rem;">Real-time chronological log of all articles that matched your alert triggers and dispatched desktop notifications.</p>
+          </div>
+          <button class="tandem-btn tandem-btn-dark" id="btnClearAlertLogs" style="border-radius: var(--bento-radius-pill);">Clear Log History</button>
+        </div>
+        <table class="bento-table" id="alertsTable">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Priority</th>
+              <th>Trigger Rule</th>
+              <th>Matched Keyword</th>
+              <th>Article Title</th>
+              <th>Category</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="alertsTableBody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+    </main>
+
+  </div>
+
+  <!-- Modal: Triggers & Alert Rules -->
+  <div class="modal-overlay" id="modalTriggers" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-size: 1.5rem;">⚡</span>
+          <div>
+            <h3 style="font-size: 1.2rem; font-weight: 800;">Alert Triggers & Notification Rules</h3>
+            <p style="font-size: 0.78rem; color: var(--ink-secondary);">Define custom keywords to trigger instant desktop notifications & priority badges.</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="btnCloseTriggers">✕</button>
+      </div>
+
+      <div class="modal-body triggers-modal-grid">
+        <!-- Left: Active Triggers List -->
+        <div>
+          <h4 style="font-size: 0.95rem; font-weight: 800; margin-bottom: 0.75rem;">Active Rules (<span id="triggerListCount">0</span>)</h4>
+          <div class="triggers-scroll" id="triggersList">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+
+        <!-- Right: Create / Edit Rule Form -->
+        <div>
+          <h4 id="triggerFormHeading" style="font-size: 0.95rem; font-weight: 800; margin-bottom: 0.75rem;">Create New Alert Trigger</h4>
+          <form id="triggerForm">
+            <input type="hidden" id="triggerEditId" value="" />
+
+            <div class="form-group">
+              <label for="triggerName">Trigger Rule Name</label>
+              <input type="text" id="triggerName" placeholder="e.g., Taylor Swift New Song Alert" required />
+            </div>
+
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label for="triggerCategory">Target Category</label>
+                <select id="triggerCategory">
+                  <option value="all">🌐 All Topics</option>
+                  <option value="daily_news_us">🇺🇸 Daily News US</option>
+                  <option value="daily_news_ind">🇮🇳 Daily News IND</option>
+                  <option value="singers_usa">🎤 Singers USA</option>
+                  <option value="hollywood_stars">🎬 Hollywood Stars</option>
+                  <option value="mix_sports">⚾🏈 Mix Sports (Baseball & NFL)</option>
+                </select>
+              </div>
+
+              <div class="form-group flex-1">
+                <label for="triggerPriority">Alert Priority</label>
+                <select id="triggerPriority">
+                  <option value="urgent">🚨 Urgent (Persistent Alarm)</option>
+                  <option value="high" selected>⚡ High (Notification + Chime)</option>
+                  <option value="medium">📌 Medium (Standard Toast)</option>
+                  <option value="low">ℹ️ Low (Silent Badge)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="triggerKeywords">Keywords or Match Phrases</label>
+              <textarea id="triggerKeywords" rows="3" placeholder="Comma-separated keywords, e.g.: Taylor Swift, Beyonce, Grammy, Super Bowl, Yankees" required></textarea>
+              <span style="font-size: 0.72rem; color: var(--ink-secondary);">Articles containing any of these words will trigger an alert.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="triggerMatchMode">Matching Condition</label>
+              <select id="triggerMatchMode">
+                <option value="any" selected>Any of the keywords (OR condition)</option>
+                <option value="all">All keywords must be present (AND condition)</option>
+                <option value="exact">Exact full phrase match</option>
+                <option value="regex">Regular Expression (Advanced Regex)</option>
+              </select>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 1.25rem;">
+              <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; font-weight: 700; cursor: pointer;">
+                <input type="checkbox" id="triggerNotifyDesktop" checked />
+                <span>Show Windows Desktop Toast</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; font-weight: 700; cursor: pointer;">
+                <input type="checkbox" id="triggerNotifySound" checked />
+                <span>Play Audio Alert Chime</span>
+              </label>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+              <button type="button" class="pill-filter-btn" id="btnCancelTriggerEdit" style="display: none;">Cancel</button>
+              <button type="submit" class="tandem-btn tandem-btn-dark" style="border-radius: var(--bento-radius-pill);">Save Alert Rule</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Feeds & Settings -->
+  <div class="modal-overlay" id="modalFeeds" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+          <span style="font-size: 1.5rem;">⚙️</span>
+          <div>
+            <h3 style="font-size: 1.2rem; font-weight: 800;">Feeds Manager & Polling Settings</h3>
+            <p style="font-size: 0.78rem; color: var(--ink-secondary);">Customize RSS sources, add custom feeds, and adjust auto-sync intervals.</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" id="btnCloseFeeds">✕</button>
+      </div>
+
+      <div class="modal-body feeds-modal-grid">
+        <!-- Left: Feeds List -->
+        <div>
+          <h4 style="font-size: 0.95rem; font-weight: 800; margin-bottom: 0.75rem;">Active Feeds (<span id="feedListCount">0</span>)</h4>
+          <div class="feeds-scroll" id="feedsList">
+            <!-- Injected via JS -->
+          </div>
+        </div>
+
+        <!-- Right: Add Feed & Engine Settings -->
+        <div>
+          <div style="background: var(--card-bg-white); border: var(--border-thin); border-radius: var(--bento-radius-sm); padding: 1.25rem; margin-bottom: 1.5rem;">
+            <h4 style="font-size: 0.95rem; font-weight: 800; margin-bottom: 0.75rem;">Add Custom RSS Feed</h4>
+            <form id="addFeedForm">
+              <div class="form-group">
+                <label for="feedName">Feed Name / Publisher</label>
+                <input type="text" id="feedName" placeholder="e.g., ESPN Baseball Blog" required />
+              </div>
+
+              <div class="form-row">
+                <div class="form-group flex-2">
+                  <label for="feedCategory">Topic Category</label>
+                  <select id="feedCategory">
+                    <option value="daily_news_us">🇺🇸 Daily News US</option>
+                    <option value="daily_news_ind">🇮🇳 Daily News IND</option>
+                    <option value="singers_usa">🎤 Singers USA</option>
+                    <option value="hollywood_stars">🎬 Hollywood Stars</option>
+                    <option value="mix_sports">⚾🏈 Mix Sports (Baseball & NFL)</option>
+                  </select>
+                </div>
+
+                <div class="form-group flex-1">
+                  <label for="feedIcon">Icon</label>
+                  <select id="feedIcon">
+                    <option value="📰">📰 News</option>
+                    <option value="🇺🇸">🇺🇸 US</option>
+                    <option value="🇮🇳">🇮🇳 IND</option>
+                    <option value="🎤">🎤 Mic</option>
+                    <option value="🎸">🎸 Guitar</option>
+                    <option value="🎬">🎬 Film</option>
+                    <option value="🍿">🍿 Cinema</option>
+                    <option value="🏈">🏈 NFL</option>
+                    <option value="⚾">⚾ MLB</option>
+                    <option value="🏆">🏆 Trophy</option>
+                    <option value="📻">📻 Radio</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="feedUrl">RSS / Atom URL</label>
+                <input type="url" id="feedUrl" placeholder="https://example.com/rss.xml" required />
+              </div>
+
+              <button type="submit" class="tandem-btn tandem-btn-dark" style="width: 100%; justify-content: center; border-radius: var(--bento-radius-pill);">Add RSS Source</button>
+            </form>
+          </div>
+
+          <!-- Engine Settings Form -->
+          <div style="background: var(--card-bg-white); border: var(--border-thin); border-radius: var(--bento-radius-sm); padding: 1.25rem;">
+            <h4 style="font-size: 0.95rem; font-weight: 800; margin-bottom: 0.75rem;">Engine Settings</h4>
+            <form id="settingsForm">
+              <div class="form-group">
+                <label for="settingPollInterval">Background Auto-Sync Interval</label>
+                <select id="settingPollInterval">
+                  <option value="0.5">Every 30 seconds (Ultra Real-Time)</option>
+                  <option value="1">Every 1 minute (Fast)</option>
+                  <option value="2" selected>Every 2 minutes (Recommended)</option>
+                  <option value="5">Every 5 minutes</option>
+                  <option value="10">Every 10 minutes</option>
+                  <option value="15">Every 15 minutes</option>
+                  <option value="30">Every 30 minutes</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label for="settingDesktopNotify">Windows Desktop Notifications</label>
+                <select id="settingDesktopNotify">
+                  <option value="triggers_only" selected>Only for Trigger Matches (Recommended)</option>
+                  <option value="all">All New Articles</option>
+                  <option value="disabled">Disabled (Silent)</option>
+                </select>
+              </div>
+
+              <div style="margin-bottom: 1.25rem;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.82rem; font-weight: 700; cursor: pointer;">
+                  <input type="checkbox" id="settingSound" checked />
+                  <span>Audio Chime on Trigger Matches</span>
+                </label>
+              </div>
+
+              <button type="submit" class="tandem-btn tandem-btn-lime" style="width: 100%; justify-content: center; border-radius: var(--bento-radius-pill);">Save Settings</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Overlay for in-browser notifications -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
