@@ -139,12 +139,18 @@ def main():
     if is_port_in_use(port, host):
         if check_existing_pulsefeed_instance(port, host):
             print("=" * 65)
-            print("  [*] PulseFeed is ALREADY RUNNING!")
-            print(f"  [>] Active URL: {url}")
+            print("  [*] PulseFeed is ALREADY RUNNING and active!")
+            print(f"  [>] Dashboard URL: {url}")
             print("  [*] Opening dashboard in your default browser...")
             print("=" * 65)
             if not no_browser:
                 webbrowser.open(url)
+            print("\n  [Tip] PulseFeed is actively monitoring RSS feeds in background.")
+            print("  Press Enter to close this launcher window...")
+            try:
+                input()
+            except Exception:
+                pass
             return
         else:
             new_port = find_available_port(port + 1, 20, host)
@@ -170,9 +176,21 @@ def main():
         browser_thread = threading.Thread(target=open_browser_delayed, args=(url,), daemon=True)
         browser_thread.start()
 
-    # Start Uvicorn Server
+    # Start Uvicorn Server with automatic port retry
     try:
-        uvicorn.run(app, host=host, port=port, log_level="warning")
+        current_port = port
+        for _ in range(15):
+            try:
+                config = uvicorn.Config(app, host=host, port=current_port, log_level="warning")
+                server = uvicorn.Server(config)
+                server.run()
+                break
+            except OSError as e:
+                if "10048" in str(e) or "already in use" in str(e).lower():
+                    logger.warning(f"Port {current_port} busy or in TIME_WAIT. Trying port {current_port + 1}...")
+                    current_port += 1
+                else:
+                    raise
     except KeyboardInterrupt:
         logger.info("Shutting down PulseFeed...")
     finally:
