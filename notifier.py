@@ -80,9 +80,10 @@ def send_windows_toast(
             else:
                 toast.set_audio(winotify.audio.Silent, loop=False)
 
-            # Add interactive button to open the article
+            # Add interactive buttons
             if url and url.startswith("http"):
                 toast.add_actions(label="Read Article ↗", launch=url)
+            toast.add_actions(label="Open PulseFeed", launch="http://localhost:8000")
 
             toast.show()
             return True
